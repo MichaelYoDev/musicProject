@@ -22,7 +22,6 @@
             margin-top: 20px;
             padding: 10px;
             background-color: white;
-
         }
     </style>
 </head>
@@ -30,15 +29,12 @@
 <body>
     <h1>Music Notation</h1>
 
-    <p>Score Settings:</p>
-
     <label>Score Title:
         <input id="title" type="text" value="My Score">
     </label>
     <br>
-
     <label>Part Name:
-        <input id="partName" type="text" value="Instrument">
+        <input id="partName" type="text" value="Music">
     </label>
     <br>
     <label>Clef:
@@ -48,12 +44,10 @@
         </select>
     </label>
     <br>
-
     <label>Key signature (+ sharps / - flats):
         <input id="key" type="number" value="0" min="-7" max="7">
     </label>
     <br>
-
     <label>Time signature:
         <input id="beats" type="number" value="4" min="1"> /
         <input id="beatType" type="number" value="4" min="1">
@@ -65,6 +59,7 @@
 2 Eb5
 1 rest</textarea><br>
     <button onclick="compile()">Compile & Render</button>
+    <button onclick="">Export to PDF</button>
 
     <div id="render"></div>
 
@@ -76,13 +71,12 @@
 
             const title = document.getElementById("title").value;
             const partName = document.getElementById("partName").value;
-
             const clef = document.getElementById("clef").value;
             const key = parseInt(document.getElementById("key").value);
             const beats = parseInt(document.getElementById("beats").value);
             const beatType = parseInt(document.getElementById("beatType").value);
 
-            const divisionsPerBeat = 2; // can adjust if needed
+            const divisionsPerBeat = 2; // can adjust
             const totalDivisionsPerMeasure = beats * divisionsPerBeat;
 
             let measureFilled = 0;
@@ -116,58 +110,65 @@
                 if (!durStr || !note) return;
 
                 const rawDur = parseFloat(durStr);
-                let dotted = false;
-                if (durStr.includes(".5")) dotted = true;
-
+                const dotted = durStr.includes(".5");
                 const durationVal = rawDur * divisionsPerBeat;
 
-                // Auto-split measures
-                if (measureFilled + durationVal > totalDivisionsPerMeasure) {
-                    musicxml += `\n    </measure>\n    <measure number="${++measureNumber}">`;
-                    measureFilled = 0;
+                let isRest = note.toLowerCase() === "rest";
 
-                    // Optional: repeat attributes at new measure
-                    musicxml += `
-      <attributes>
-        <divisions>${divisionsPerBeat}</divisions>
-        <key><fifths>${key}</fifths></key>
-        <time><beats>${beats}</beats><beat-type>${beatType}</beat-type></time>
-        <clef><sign>${clef}</sign><line>${clef === "F" ? 4 : 2}</line></clef>
-      </attributes>`;
-                }
+                let remainingDuration = durationVal;
 
-                if (note.toLowerCase() === "rest") {
-                    musicxml += `
+                while (remainingDuration > 0) {
+                    const spaceLeft = totalDivisionsPerMeasure - measureFilled;
+                    const durInThisMeasure = Math.min(remainingDuration, spaceLeft);
+
+                    const isTiedStart = remainingDuration > durInThisMeasure;
+                    const isTiedStop = measureFilled === 0 && remainingDuration < totalDivisionsPerMeasure; // start of new measure continuation
+
+                    if (isRest) {
+                        musicxml += `
         <note>
           <rest/>
-          <duration>${durationVal}</duration>
+          <duration>${durInThisMeasure}</duration>
           ${dotted ? "<dot/>" : ""}
         </note>`;
-                } else {
-                    const match = note.match(/^([A-Ga-g])([#b]*)(\d)$/);
-                    if (!match) return;
+                    } else {
+                        const match = note.match(/^([A-Ga-g])([#b]*)(\d)$/);
+                        if (!match) return;
 
-                    let step = match[1].toUpperCase();
-                    let accidentals = match[2];
-                    let octave = match[3];
+                        let step = match[1].toUpperCase();
+                        let accidentals = match[2];
+                        let octave = match[3];
 
-                    let alter = "";
-                    if (accidentals.includes("#")) alter = `<alter>${accidentals.length}</alter>`;
-                    if (accidentals.includes("b")) alter = `<alter>-${accidentals.length}</alter>`;
+                        let alter = "";
+                        if (accidentals.includes("#")) alter = `<alter>${accidentals.length}</alter>`;
+                        if (accidentals.includes("b")) alter = `<alter>-${accidentals.length}</alter>`;
 
-                    musicxml += `
+                        musicxml += `
         <note>
           <pitch>
             <step>${step}</step>
             ${alter}
             <octave>${octave}</octave>
           </pitch>
-          <duration>${durationVal}</duration>
+          <duration>${durInThisMeasure}</duration>
           ${dotted ? "<dot/>" : ""}
+          ${isTiedStart ? '<tie type="start"/>' : ""}
+          ${isTiedStop ? '<tie type="stop"/>' : ""}
+          <notations>
+            ${isTiedStart ? '<tied type="start"/>' : ""}
+            ${isTiedStop ? '<tied type="stop"/>' : ""}
+          </notations>
         </note>`;
-                }
+                    }
 
-                measureFilled += durationVal;
+                    remainingDuration -= durInThisMeasure;
+                    measureFilled += durInThisMeasure;
+
+                    if (measureFilled >= totalDivisionsPerMeasure) {
+                        musicxml += "\n</measure>\n<measure>\n";
+                        measureFilled = 0;
+                    }
+                }
             });
 
             musicxml += `
