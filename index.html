@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <title>Music Notation</title>
     <script src="https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.7.6/build/opensheetmusicdisplay.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <style>
         body {
             font-family: sans-serif;
@@ -34,7 +36,7 @@
     </label>
     <br>
     <label>Part Name:
-        <input id="partName" type="text" value="Music">
+        <input id="partName" type="text" value="Instrument">
     </label>
     <br>
     <label>Clef:
@@ -59,7 +61,7 @@
 2 Eb5
 1 rest</textarea><br>
     <button onclick="compile()">Compile & Render</button>
-    <button onclick="">Export to PDF</button>
+    <button onclick="exportToPDF()">Export to PDF</button>
 
     <div id="render"></div>
 
@@ -177,6 +179,33 @@
 </score-partwise>`;
 
             osmd.load(musicxml).then(() => osmd.render());
+        }
+
+        async function exportToPDF() {
+            await osmd.render();
+
+            const {jsPDF} = window.jspdf;
+            const pdf = new jsPDF({
+                orientation: "portrait",
+                unit: "pt",
+                format: "letter"
+            });
+
+            const renderDiv = document.getElementById("render");
+
+            const canvas = await html2canvas(renderDiv, {scale: 2});
+            const imgData = canvas.toDataURL("image/png");
+
+            const pdfWidth = 8.5 * 72;
+            const pdfHeight = 11 * 72;
+
+            const scale = Math.min(pdfWidth / canvas.width, pdfHeight / canvas.height);
+            const width = canvas.width * scale;
+            const height = canvas.height * scale;
+
+            pdf.addImage(imgData, "PNG", (pdfWidth - width) / 2, 20, width, height);
+
+            pdf.save("score.pdf");
         }
 
         compile();
