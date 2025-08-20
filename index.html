@@ -9,6 +9,7 @@
         body {
             font-family: sans-serif;
             margin: 20px;
+            background-color: #ccc;
         }
 
         textarea {
@@ -18,9 +19,10 @@
         }
 
         #render {
-            border: 1px solid #ccc;
             margin-top: 20px;
             padding: 10px;
+            background-color: white;
+
         }
     </style>
 </head>
@@ -29,6 +31,16 @@
     <h1>Music Notation</h1>
 
     <p>Score Settings:</p>
+
+    <label>Score Title:
+        <input id="title" type="text" value="My Score">
+    </label>
+    <br>
+
+    <label>Part Name:
+        <input id="partName" type="text" value="Instrument">
+    </label>
+    <br>
     <label>Clef:
         <select id="clef">
             <option value="G" selected>Treble (G)</option>
@@ -62,25 +74,37 @@
         function compile() {
             const input = document.getElementById("input").value.trim().split("\n");
 
+            const title = document.getElementById("title").value;
+            const partName = document.getElementById("partName").value;
+
             const clef = document.getElementById("clef").value;
-            const key = document.getElementById("key").value;
-            const beats = document.getElementById("beats").value;
-            const beatType = document.getElementById("beatType").value;
+            const key = parseInt(document.getElementById("key").value);
+            const beats = parseInt(document.getElementById("beats").value);
+            const beatType = parseInt(document.getElementById("beatType").value);
+
+            const divisionsPerBeat = 2; // can adjust if needed
+            const totalDivisionsPerMeasure = beats * divisionsPerBeat;
+
+            let measureFilled = 0;
+            let measureNumber = 1;
 
             let musicxml = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE score-partwise PUBLIC
     "-//Recordare//DTD MusicXML 3.1 Partwise//EN"
     "http://www.musicxml.org/dtds/partwise.dtd">
 <score-partwise version="3.1">
+  <work>
+    <work-title>${title}</work-title>
+  </work>
   <part-list>
     <score-part id="P1">
-      <part-name>Music</part-name>
+      <part-name>${partName}</part-name>
     </score-part>
   </part-list>
   <part id="P1">
     <measure number="1">
       <attributes>
-        <divisions>2</divisions>
+        <divisions>${divisionsPerBeat}</divisions>
         <key><fifths>${key}</fifths></key>
         <time><beats>${beats}</beats><beat-type>${beatType}</beat-type></time>
         <clef><sign>${clef}</sign><line>${clef === "F" ? 4 : 2}</line></clef>
@@ -92,15 +116,25 @@
                 if (!durStr || !note) return;
 
                 const rawDur = parseFloat(durStr);
-                let baseDur = rawDur;
                 let dotted = false;
+                if (durStr.includes(".5")) dotted = true;
 
-                if (durStr.includes(".5")) {
-                    dotted = true;
-                    baseDur = rawDur - 0.5;
+                const durationVal = rawDur * divisionsPerBeat;
+
+                // Auto-split measures
+                if (measureFilled + durationVal > totalDivisionsPerMeasure) {
+                    musicxml += `\n    </measure>\n    <measure number="${++measureNumber}">`;
+                    measureFilled = 0;
+
+                    // Optional: repeat attributes at new measure
+                    musicxml += `
+      <attributes>
+        <divisions>${divisionsPerBeat}</divisions>
+        <key><fifths>${key}</fifths></key>
+        <time><beats>${beats}</beats><beat-type>${beatType}</beat-type></time>
+        <clef><sign>${clef}</sign><line>${clef === "F" ? 4 : 2}</line></clef>
+      </attributes>`;
                 }
-
-                const durationVal = rawDur * 2;
 
                 if (note.toLowerCase() === "rest") {
                     musicxml += `
@@ -111,7 +145,7 @@
         </note>`;
                 } else {
                     const match = note.match(/^([A-Ga-g])([#b]*)(\d)$/);
-                    if (!match) return; // invalid input
+                    if (!match) return;
 
                     let step = match[1].toUpperCase();
                     let accidentals = match[2];
@@ -132,6 +166,8 @@
           ${dotted ? "<dot/>" : ""}
         </note>`;
                 }
+
+                measureFilled += durationVal;
             });
 
             musicxml += `
