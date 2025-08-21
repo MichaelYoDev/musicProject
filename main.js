@@ -140,3 +140,10 @@ async function exportToPDF() {
 }
 
 compile();
+
+["input", "title", "partName", "clef", "key", "beats", "beatType"]
+  .forEach(id => {
+    document.getElementById(id).addEventListener("input", () => {
+      compile();
+    });
+  });
