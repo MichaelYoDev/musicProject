@@ -10,7 +10,7 @@ function compile() {
     const beats = parseInt(document.getElementById("beats").value);
     const beatType = parseInt(document.getElementById("beatType").value);
 
-    const divisionsPerBeat = 8; 
+    const divisionsPerBeat = 8;
     const totalDivisionsPerMeasure = beats * divisionsPerBeat;
 
     let measureFilled = 0;
@@ -61,11 +61,14 @@ function compile() {
             const space = totalDivisionsPerMeasure - measureFilled;
             const durThisMeasure = Math.min(remaining, space);
 
+            let isTiedStart = remaining > durThisMeasure;
+            let isTiedStop = measureFilled === 0 && remaining < durationVal;
+
             let noteXML = "";
             if (isRest) {
                 noteXML = `<note><rest/><duration>${durThisMeasure}</duration>${dotted ? "<dot/>" : ""}</note>`;
                 musicxml += noteXML;
-                flushBeamGroup(); 
+                flushBeamGroup();
             } else {
                 const match = note.match(/^([A-Ga-g])([#b]*)(\d)$/);
                 if (!match) return;
@@ -73,12 +76,14 @@ function compile() {
                 let accidental = match[2];
                 let octave = match[3];
                 let alter = accidental.includes("#") ? `<alter>${accidental.length}</alter>` :
-                            accidental.includes("b") ? `<alter>-${accidental.length}</alter>` : "";
+                    accidental.includes("b") ? `<alter>-${accidental.length}</alter>` : "";
 
                 noteXML = `<note>
                     <pitch><step>${step}</step>${alter}<octave>${octave}</octave></pitch>
                     <duration>${durThisMeasure}</duration>
                     ${dotted ? "<dot/>" : ""}
+                    ${isTiedStart ? '<tie type="start"/><notations><tied type="start"/></notations>' : ""}
+                    ${isTiedStop ? '<tie type="stop"/><notations><tied type="stop"/></notations>' : ""}
                     <!--BEAM-->
                 </note>`;
 
@@ -102,18 +107,14 @@ function compile() {
     });
 
     flushBeamGroup();
-
     musicxml += `</measure></part></score-partwise>`;
+
     osmd.load(musicxml).then(() => osmd.render());
 }
 
 function exportToPDF() {
     const { jsPDF } = window.jspdf;
-    const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "pt",
-        format: "letter"
-    });
+    const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
 
     const renderDiv = document.getElementById("render");
 
@@ -136,6 +137,6 @@ function exportToPDF() {
 
 compile();
 
-["input","title","partName","clef","key","beats","beatType"].forEach(id => {
+["input", "title", "partName", "clef", "key", "beats", "beatType"].forEach(id => {
     document.getElementById(id).addEventListener("input", compile);
 });
