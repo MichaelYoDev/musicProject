@@ -1,7 +1,20 @@
 const osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay("render");
 
+const toggleButton = document.getElementById('mode-toggle');
+toggleButton.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+});
+
 function compile() {
     const input = document.getElementById("input").value.trim().split("\n");
+
+    const textarea = document.getElementById("input");
+    function autoExpand(el) {
+        el.style.height = "auto";
+        el.style.height = el.scrollHeight + "px";
+    }
+    autoExpand(textarea);
+    textarea.addEventListener("input", () => autoExpand(textarea));
 
     const title = document.getElementById("title").value;
     const partName = document.getElementById("partName").value;
