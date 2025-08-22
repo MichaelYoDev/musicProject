@@ -1,20 +1,39 @@
 const osmd = new opensheetmusicdisplay.OpenSheetMusicDisplay("render");
 
-const toggleButton = document.getElementById('mode-toggle');
-toggleButton.addEventListener('click', () => {
-    document.body.classList.toggle('dark-mode');
+document.getElementById("mode-toggle").addEventListener("click", () => {
+    document.body.classList.toggle("dark-mode");
 });
 
-function compile() {
-    const input = document.getElementById("input").value.trim().split("\n");
+function autoExpand(textarea) {
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
+}
 
-    const textarea = document.getElementById("input");
-    function autoExpand(el) {
-        el.style.height = "auto";
-        el.style.height = el.scrollHeight + "px";
+function flushBeamGroup(beamGroup, musicxml) {
+    if (beamGroup.length > 1) {
+        beamGroup.forEach((n, i) => {
+            if (i === 0) {
+                n.beam = '<beam number="1">begin</beam>';
+            } else if (i === beamGroup.length - 1) {
+                n.beam = '<beam number="1">end</beam>';
+            } else {
+                n.beam = '<beam number="1">continue</beam>';
+            }
+        });
     }
+
+    beamGroup.forEach(n => {
+        musicxml += n.xml.replace("<!--BEAM-->", n.beam || "");
+    });
+
+    return musicxml;
+}
+
+function compile() {
+    const textarea = document.getElementById("input");
     autoExpand(textarea);
-    textarea.addEventListener("input", () => autoExpand(textarea));
+    textarea.removeEventListener("input", handleAutoExpand);
+    textarea.addEventListener("input", handleAutoExpand);
 
     const title = document.getElementById("title").value;
     const partName = document.getElementById("partName").value;
@@ -28,21 +47,6 @@ function compile() {
 
     let measureFilled = 0;
     let beamGroup = [];
-
-    function flushBeamGroup() {
-        if (beamGroup.length > 1) {
-            beamGroup.forEach((n, i) => {
-                if (i === 0) n.beam = '<beam number="1">begin</beam>';
-                else if (i === beamGroup.length - 1) n.beam = '<beam number="1">end</beam>';
-                else n.beam = '<beam number="1">continue</beam>';
-            });
-        }
-        beamGroup.forEach(n => {
-            musicxml += n.xml.replace("<!--BEAM-->", n.beam || "");
-        });
-        beamGroup = [];
-    }
-
     let musicxml = `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <score-partwise version="3.1">
     <work><work-title>${title}</work-title></work>
@@ -59,7 +63,8 @@ function compile() {
             </attributes>
 `;
 
-    input.forEach(line => {
+    const lines = textarea.value.trim().split("\n");
+    lines.forEach(line => {
         const [durStr, note] = line.split(/\s+/);
         if (!durStr || !note) return;
 
@@ -67,43 +72,53 @@ function compile() {
         const dotted = durStr.includes(".5");
         const durationVal = rawDur * divisionsPerBeat;
 
-        let isRest = note.toLowerCase() === "rest";
+        const isRest = note.toLowerCase() === "rest";
         let remaining = durationVal;
 
         while (remaining > 0) {
             const space = totalDivisionsPerMeasure - measureFilled;
             const durThisMeasure = Math.min(remaining, space);
 
-            let isTiedStart = remaining > durThisMeasure;
-            let isTiedStop = measureFilled === 0 && remaining < durationVal;
+            const isTiedStart = remaining > durThisMeasure;
+            const isTiedStop = measureFilled === 0 && remaining < durationVal;
 
             let noteXML = "";
+
             if (isRest) {
-                noteXML = `<note><rest/><duration>${durThisMeasure}</duration>${dotted ? "<dot/>" : ""}</note>`;
+                noteXML = `<note>
+    <rest/>
+    <duration>${durThisMeasure}</duration>
+    ${dotted ? "<dot/>" : ""}
+</note>`;
                 musicxml += noteXML;
-                flushBeamGroup();
+                musicxml = flushBeamGroup(beamGroup, musicxml);
+                beamGroup = [];
             } else {
                 const match = note.match(/^([A-Ga-g])([#b]*)(\d)$/);
                 if (!match) return;
-                let step = match[1].toUpperCase();
-                let accidental = match[2];
-                let octave = match[3];
-                let alter = accidental.includes("#") ? `<alter>${accidental.length}</alter>` :
-                    accidental.includes("b") ? `<alter>-${accidental.length}</alter>` : "";
+
+                const [, stepRaw, accidental, octave] = match;
+                const step = stepRaw.toUpperCase();
+                const alter = accidental.includes("#")
+                    ? `<alter>${accidental.length}</alter>`
+                    : accidental.includes("b")
+                        ? `<alter>-${accidental.length}</alter>`
+                        : "";
 
                 noteXML = `<note>
-                    <pitch><step>${step}</step>${alter}<octave>${octave}</octave></pitch>
-                    <duration>${durThisMeasure}</duration>
-                    ${dotted ? "<dot/>" : ""}
-                    ${isTiedStart ? '<tie type="start"/><notations><tied type="start"/></notations>' : ""}
-                    ${isTiedStop ? '<tie type="stop"/><notations><tied type="stop"/></notations>' : ""}
-                    <!--BEAM-->
-                </note>`;
+    <pitch><step>${step}</step>${alter}<octave>${octave}</octave></pitch>
+    <duration>${durThisMeasure}</duration>
+    ${dotted ? "<dot/>" : ""}
+    ${isTiedStart ? '<tie type="start"/><notations><tied type="start"/></notations>' : ""}
+    ${isTiedStop ? '<tie type="stop"/><notations><tied type="stop"/></notations>' : ""}
+    <!--BEAM-->
+</note>`;
 
                 if (durThisMeasure <= divisionsPerBeat / 2) {
                     beamGroup.push({ xml: noteXML, beam: "" });
                 } else {
-                    flushBeamGroup();
+                    musicxml = flushBeamGroup(beamGroup, musicxml);
+                    beamGroup = [];
                     musicxml += noteXML.replace("<!--BEAM-->", "");
                 }
             }
@@ -112,17 +127,22 @@ function compile() {
             measureFilled += durThisMeasure;
 
             if (measureFilled >= totalDivisionsPerMeasure) {
-                flushBeamGroup();
+                musicxml = flushBeamGroup(beamGroup, musicxml);
+                beamGroup = [];
                 musicxml += "\n</measure>\n<measure>\n";
                 measureFilled = 0;
             }
         }
     });
 
-    flushBeamGroup();
+    musicxml = flushBeamGroup(beamGroup, musicxml);
     musicxml += `</measure></part></score-partwise>`;
 
     osmd.load(musicxml).then(() => osmd.render());
+}
+
+function handleAutoExpand(e) {
+    autoExpand(e.target);
 }
 
 function exportToPDF() {
@@ -130,10 +150,12 @@ function exportToPDF() {
     const pdf = new jsPDF({ orientation: "portrait", unit: "pt", format: "letter" });
 
     const renderDiv = document.getElementById("render");
+    const title = document.getElementById("title").value || "score";
+
 
     osmd.render();
 
-    html2canvas(renderDiv, { scale: 2 }).then(function(canvas) {
+    html2canvas(renderDiv, { scale: 2 }).then(canvas => {
         const imgData = canvas.toDataURL("image/png");
 
         const pdfWidth = 8.5 * 72;
@@ -144,12 +166,33 @@ function exportToPDF() {
         const height = canvas.height * scale;
 
         pdf.addImage(imgData, "PNG", (pdfWidth - width) / 2, 20, width, height);
-        pdf.save("score.pdf");
+        pdf.save(`${title}.pdf`);
     });
+}
+
+function exportToTXT() {
+    const content = document.getElementById("input").value;
+    const blob = new Blob([content], { type: "text/plain" });
+    const title = document.getElementById("title").value || "score";
+
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `${title}.txt`;
+    link.click();
+
+    URL.revokeObjectURL(link.href);
 }
 
 compile();
 
-["input", "title", "partName", "clef", "key", "beats", "beatType"].forEach(id => {
+[
+    "input",
+    "title",
+    "partName",
+    "clef",
+    "key",
+    "beats",
+    "beatType"
+].forEach(id => {
     document.getElementById(id).addEventListener("input", compile);
 });
