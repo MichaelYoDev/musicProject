@@ -18,46 +18,54 @@
 <body>
     <h1>Music Notation</h1>
 
-    <label>Score Title:
-        <input id="title" type="text" value="My Score">
-    </label>
-    <br>
-    <label>Part Name:
-        <input id="partName" type="text" value="Instrument">
-    </label>
-    <br>
-    <label>Clef:
-        <select id="clef">
-            <option value="G" selected>Treble (G)</option>
-            <option value="F">Bass (F)</option>
-        </select>
-    </label>
-    <br>
-    <label>Key signature (+ sharps / - flats):
-        <input id="key" type="number" value="0" min="-7" max="7">
-    </label>
-    <br>
-    <label>Time signature:
-        <input id="beats" type="number" value="4" min="1"> /
-        <input id="beatType" type="number" value="4" min="1">
-    </label>
+    <div class="container">
+        <div class="inputs">
+            <label>Score Title:
+                <input id="title" type="text" value="My Score">
+            </label>
+            <br>
+            <label>Part Name:
+                <input id="partName" type="text" value="Instrument">
+            </label>
+            <br>
+            <label>Clef:
+                <select id="clef">
+                    <option value="G" selected>Treble (G)</option>
+                    <option value="F">Bass (F)</option>
+                </select>
+            </label>
+            <br>
+            <label>Key (+ sharps / - flats):
+                <input id="key" type="number" value="0" min="-7" max="7">
+            </label>
+            <br>
+            <label>Time:
+                <input id="beats" type="number" value="4" min="1"> /
+                <input id="beatType" type="number" value="4" min="1">
+            </label>
+            <br>
 
-    <p>Enter notes (e.g. 1.5 C4):</p>
-    <textarea id="input">1.5 Bb4
+            <label>Enter notes (e.g. 1.5 C4):</label>
+                <textarea id="input">1.5 Bb4
 2 Eb5
 2 B4
 2 F#4
 0.5 rest
-4 rest</textarea><br>
-    <button onclick="exportToPDF()">Export to PDF</button>
-    <button onclick="exportToTXT()">Export to TXT</button>
-    <button id="mode-toggle">
-        <i class="fas fa-moon"></i>
-    </button>
+4 rest</textarea>
+            </label>
+            <br><br>
+            <label>Export to:
+                <br>
+                <button onclick="exportToPDF()">PDF</button>
+                <button onclick="exportToTXT()">TXT</button>
+                <button id="mode-toggle">
+                    <i class="fas fa-moon"></i>
+                </button>
+            </label>
+        </div>
 
-    <div id="render"></div>
+        <div id="render"></div>
+    </div>
 
     <script src="main.js"></script>
 </body>
-
-</html>
